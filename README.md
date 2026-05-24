@@ -1,85 +1,96 @@
 # suzuFiltering
 
-IPTV playlist filtering app for Android. Imports an M3U / M3U8 playlist (URL, paste,
-or file), probes every channel with a tiny HTTP HEAD/GET, classifies each one as
-**Working** or **Error**, and lets you download just the working subset (or just the
-error subset) back out as a clean playlist.
-
-The APK in [`apk/`](apk/) is the latest signed build, ready to side-load on any
-Android phone or TV box (min SDK 21, arm64-v8a).
+Android app that takes any IPTV playlist (M3U / M3U8 standard, or the user's
+custom `=== Section ===` format), probes every channel to classify each as
+**Working** or **Error**, lets you search/filter the result, and downloads just
+the slice you want as a clean text playlist.
 
 | Build | applicationId | versionName |
 |---|---|---|
-| [`apk/suzuFiltering-latest.apk`](apk/suzuFiltering-latest.apk) | `com.suzufiltering.app` | 1.0.0 |
+| [`apk/suzuFiltering-latest.apk`](apk/suzuFiltering-latest.apk) | `com.suzufiltering.app` | 1.1.0 |
 
-## What's in this build
+## What this build does for you
 
-- **Rename:** the two action buttons on the Filter Result screen are now labeled
-  **"Download Working Channel"** and **"Download Error Channel"** (previously
-  "Muat turun Working" / "Muat turun Error").
-- **Patch tool:** the APK was produced by re-packaging the upstream APK with
-  [apktool] after editing `res/values/strings.xml`, then signed with a fresh debug
-  keystore via Android `apksigner`. The procedure is reproducible from the
-  workflow in [`.github/workflows/build.yml`](.github/workflows/build.yml).
+1. **Universal parser** — both `#EXTM3U` / `#EXTINF` and the custom
+
+   ```
+   === TV Malaysia ===
+
+   TV1
+   https://example.com/tv1.png
+   https://example.com/tv1.mpd
+   912760c4...:bea2d0f8...
+   ```
+
+   format are read by the same parser. Channel groups are preserved on download.
+2. **Big-file safe** — playlists up to 50 MB are imported on a background thread
+   with streaming I/O. The previous force-close on a 10 MB `.txt` file is gone:
+   any error is now caught and surfaced as a toast instead of crashing.
+3. **Working / Error filter** — each channel is probed concurrently (HEAD then
+   GET fallback) and classified by HTTP status + content-type sniffing.
+4. **Search** — both tabs have a search box that matches case-insensitively
+   against channel name, group, and URL.
+5. **Download Working Channel / Download Error Channel** — write a clean
+   `Working.txt` / `Error.txt` (in the user-preferred custom format with
+   section headers + Name / Logo / URL / KID:Key) to
+   `Downloads/suzuFiltering/`.
+6. **Share-URL normalization** — Google Drive, Dropbox, GitHub blob, and
+   OneDrive share URLs are auto-converted to direct-download URLs at import
+   time.
+7. **ClearKey repair** — UUID-form KIDs with stripped leading zeros (e.g.
+   `912760c4-9eb-5aff-3e06-0422c502f410`) are repaired before being passed to
+   the player, preventing the `KID must be 16 bytes, got 15` crash.
 
 ## Install
 
-1. On your Android device, enable **Install from Unknown Sources** for your file
+1. Download [`apk/suzuFiltering-latest.apk`](apk/suzuFiltering-latest.apk).
+2. On your phone or TV box, enable **Install unknown apps** for your file
    manager / browser.
-2. Download `apk/suzuFiltering-latest.apk`.
-3. Tap to install. If you have a previous suzuFiltering build, uninstall it first
-   (the signing key changes between Devin-built debug APKs and any upstream signed
-   release).
+3. Tap the APK to install. If a previous suzuFiltering build is installed,
+   uninstall it first — the signing key changes between debug builds.
 
-## What suzuFiltering does
+## How to use
 
-- **Import:** paste a URL, paste the playlist text, or pick a `.m3u` / `.m3u8`
-  file from local storage.
-- **Filter:** every channel is probed concurrently with a short HEAD/GET. The
-  app classifies each as Working (200 + correct content-type / non-HTML body)
-  or Error (HTTP error, timeout, HTML error page, etc.).
-- **Edit:** tap any channel to rename, change the logo, or move it between the
-  Working and Error tabs.
-- **Download:** the **Download Working Channel** / **Download Error Channel**
-  buttons write a clean `Working.txt` / `Error.txt` (M3U-formatted) to your
-  Downloads folder.
+1. Tap **Import & Filter** on the home screen.
+2. Choose **URL**, **Paste**, or **File** as your input.
+3. Tap **Start filter** — the app probes every channel concurrently with a
+   short HEAD/GET and shows live progress.
+4. Switch between the **Working** and **Error** tabs.
+5. Type in the search box to filter the visible tab.
+6. Long-press a channel to **Play** (sanity-check it in ExoPlayer) or
+   **Move to Error / Working** (manual override).
+7. Tap **Download Working Channel** or **Download Error Channel** — the file is
+   written to `Downloads/suzuFiltering/`.
 
-## Known limitations of this build
-
-- The bundled `M3uParser` recognizes only standard `#EXTM3U` / `#EXTINF` syntax
-  plus `#KODIPROP` / `#EXTVLCOPT` license hints. The custom "`=== Section ===`"
-  format with bare lines (name / logo / URL / KID:KEY) is **not** yet parsed —
-  if you import that format, channels will be detected as raw URLs without
-  group titles. To enable the custom format we need to ship a parser update
-  (TODO).
-- Smali sources for this repo are intentionally not committed: the binary
-  bytecode is large (~150 MB across all `smali*/` directories) and unmaintainable
-  by hand. If you want to iterate on the app's Kotlin source, the upstream
-  AnimedanTV/SuzuTV Kotlin source lives at
-  https://github.com/hairunnizam21/simpletv — clone that repo, port the
-  filtering features, then rebuild.
-
-## Reproducing the patch
+## Build from source
 
 ```bash
-# 1. Decode the upstream APK
-java -jar apktool.jar d suzuFiltering+tolongfix.apk -o decoded
-
-# 2. Edit res/values/strings.xml:
-#    "Muat turun Working" -> "Download Working Channel"
-#    "Muat turun Error"   -> "Download Error Channel"
-
-# 3. Rebuild
-java -jar apktool.jar b decoded -o suzuFiltering-unsigned.apk
-
-# 4. Align + sign with a debug keystore
-zipalign -p -f 4 suzuFiltering-unsigned.apk suzuFiltering-aligned.apk
-apksigner sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android \
-  --out suzuFiltering-latest.apk suzuFiltering-aligned.apk
-apksigner verify suzuFiltering-latest.apk
+./gradlew :app:assembleDebug
 ```
 
-The GitHub Action under [`.github/workflows/build.yml`](.github/workflows/build.yml)
-does this end-to-end on every push and uploads the result as a workflow artifact.
+The signed debug APK lands in `app/build/outputs/apk/debug/app-debug.apk`. The
+unit tests for parser, KID normalization, and URL conversion live in
+`app/src/test/`:
 
-[apktool]: https://apktool.org
+```bash
+./gradlew :app:testDebugUnitTest
+```
+
+## Notable files
+
+| File | Purpose |
+|---|---|
+| `M3uParser.kt` | Universal parser (EXTINF + custom `=== Section ===`) |
+| `HealthChecker.kt` | Concurrent HTTP probe with HEAD/GET fallback |
+| `M3uExporter.kt` | Writes channels back in the custom section format |
+| `KidUtils.kt` | Normalizes malformed UUID KIDs |
+| `UrlUtils.kt` | Share-URL conversion + MIME-from-URL detection |
+| `ImportActivity.kt` | URL / Paste / File import with 50 MB streaming cap |
+| `FilterResultActivity.kt` | Working/Error tabs + search + download buttons |
+| `PlayerActivity.kt` | ExoPlayer with ClearKey DRM data: URL |
+
+## CI
+
+The GitHub Action under [`.github/workflows/build.yml`](.github/workflows/build.yml)
+runs unit tests and builds a debug APK on every push, uploading the APK as an
+artifact.
