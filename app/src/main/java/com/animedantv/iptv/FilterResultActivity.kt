@@ -1,6 +1,9 @@
 package com.animedantv.iptv
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -9,6 +12,10 @@ import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -27,7 +34,7 @@ class FilterResultActivity : AppCompatActivity() {
     private lateinit var binding: ActivityFilterResultBinding
     private lateinit var adapter: ChannelHealthAdapter
 
-    private var allResults: List<ChannelHealth> = emptyList()
+    private val allResults: MutableList<ChannelHealth> = mutableListOf()
     private var showWorking: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,18 +98,27 @@ class FilterResultActivity : AppCompatActivity() {
         binding.txtStatus.text = getString(R.string.checking_progress, 0, channels.size)
         binding.progress.max = channels.size
         binding.progress.progress = 0
+        allResults.clear()
+        updateTabBadges()
+        refresh()
         lifecycleScope.launch {
-            val results = HealthChecker.checkAll(channels) { done, total, _ ->
+            HealthChecker.checkAll(channels) { done, total, latest ->
                 withContext(Dispatchers.Main) {
+                    allResults += latest
                     binding.progress.progress = done
                     binding.txtStatus.text = getString(R.string.checking_progress, done, total)
+                    updateTabBadges()
+                    if (latest.isWorking == showWorking) {
+                        refresh()
+                    }
                 }
             }
-            allResults = results
-            updateTabBadges()
-            refresh()
-            val working = results.count { it.isWorking }
-            binding.txtStatus.text = getString(R.string.check_complete, working, results.size - working)
+            withContext(Dispatchers.Main) {
+                refresh()
+                val working = allResults.count { it.isWorking }
+                binding.txtStatus.text =
+                    getString(R.string.check_complete, working, allResults.size - working)
+            }
         }
     }
 
@@ -130,24 +146,109 @@ class FilterResultActivity : AppCompatActivity() {
         val moveLabel = if (h.isWorking) R.string.action_move_to_error else R.string.action_move_to_working
         val items = arrayOf(
             getString(R.string.action_play),
+            getString(R.string.action_edit),
+            getString(R.string.action_view_source),
             getString(moveLabel),
         )
         AlertDialog.Builder(this)
-            .setTitle(h.channel.name)
+            .setTitle(h.channel.name.ifBlank { getString(R.string.untitled_channel) })
             .setItems(items) { _, which ->
                 when (which) {
                     0 -> openInPlayer(h)
-                    1 -> moveChannel(h)
+                    1 -> showEditDialog(h)
+                    2 -> showSourceDialog(h)
+                    3 -> moveChannel(h)
                 }
             }
             .show()
     }
 
     private fun moveChannel(h: ChannelHealth) {
+        val idx = allResults.indexOfFirst { it === h }
+        if (idx < 0) return
         val newStatus = if (h.isWorking) HealthStatus.ERROR else HealthStatus.WORKING
-        allResults = allResults.map { if (it === h) it.copy(status = newStatus, message = "manual") else it }
+        allResults[idx] = h.copy(status = newStatus, message = "manual")
         updateTabBadges()
         refresh()
+    }
+
+    private fun showEditDialog(h: ChannelHealth) {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+        }
+        val nameInput = EditText(this).apply {
+            hint = getString(R.string.edit_name_hint)
+            setText(h.channel.name)
+        }
+        val groupInput = EditText(this).apply {
+            hint = getString(R.string.edit_group_hint)
+            setText(h.channel.group.orEmpty())
+        }
+        val logoInput = EditText(this).apply {
+            hint = getString(R.string.edit_logo_hint)
+            setText(h.channel.logoUrl.orEmpty())
+        }
+        container.addView(nameInput)
+        container.addView(groupInput)
+        container.addView(logoInput)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.action_edit)
+            .setView(container)
+            .setPositiveButton(R.string.btn_save) { _, _ ->
+                val idx = allResults.indexOfFirst { it === h }
+                if (idx < 0) return@setPositiveButton
+                val updated = h.channel.copy(
+                    name = nameInput.text.toString().trim().ifBlank { h.channel.name },
+                    group = groupInput.text.toString().trim().takeIf { it.isNotEmpty() },
+                    logoUrl = logoInput.text.toString().trim().takeIf { it.isNotEmpty() },
+                )
+                allResults[idx] = h.copy(channel = updated)
+                refresh()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    private fun showSourceDialog(h: ChannelHealth) {
+        val source = h.channel.rawSource?.takeIf { it.isNotBlank() }
+            ?: buildSyntheticSource(h.channel)
+        val text = TextView(this).apply {
+            this.text = source
+            setTextIsSelectable(true)
+            typeface = android.graphics.Typeface.MONOSPACE
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, pad / 2)
+        }
+        val scroll = ScrollView(this).apply { addView(text) }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.action_view_source)
+            .setView(scroll)
+            .setPositiveButton(R.string.btn_copy) { _, _ ->
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("channel source", source))
+                Toast.makeText(this, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(R.string.btn_close, null)
+            .show()
+    }
+
+    private fun buildSyntheticSource(c: Channel): String {
+        val sb = StringBuilder()
+        val attrs = buildString {
+            c.tvgId?.let { append(" tvg-id=\"").append(it).append('"') }
+            c.tvgName?.let { append(" tvg-name=\"").append(it).append('"') }
+            c.logoUrl?.let { append(" tvg-logo=\"").append(it).append('"') }
+            c.group?.let { append(" group-title=\"").append(it).append('"') }
+        }
+        sb.append("#EXTINF:-1").append(attrs).append(',').append(c.name).append('\n')
+        c.licenseType?.let { sb.append("#KODIPROP:inputstream.adaptive.license_type=").append(it).append('\n') }
+        c.licenseKey?.let { sb.append("#KODIPROP:inputstream.adaptive.license_key=").append(it).append('\n') }
+        c.userAgent?.let { sb.append("#EXTVLCOPT:http-user-agent=").append(it).append('\n') }
+        c.referer?.let { sb.append("#EXTVLCOPT:http-referrer=").append(it).append('\n') }
+        sb.append(c.streamUrl)
+        return sb.toString()
     }
 
     private fun downloadFiltered(working: Boolean) {

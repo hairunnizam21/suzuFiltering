@@ -31,8 +31,20 @@
     <string name="action_download_working">Download Working Channel</string>
     <string name="action_download_error">Download Error Channel</string>
     <string name="action_play">Play</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_view_source">View source</string>
     <string name="action_move_to_error">Move to Error</string>
     <string name="action_move_to_working">Move to Working</string>
+
+    <string name="edit_name_hint">Channel name</string>
+    <string name="edit_group_hint">Group</string>
+    <string name="edit_logo_hint">Logo URL</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_copy">Copy</string>
+    <string name="btn_close">Close</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="untitled_channel">(untitled)</string>
 
     <string name="err_import">Import failed: %1$s</string>
     <string name="err_no_channels">No channels found in input.</string>

@@ -56,11 +56,14 @@ class ChannelHealthAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = visible[position]
         val ch = item.channel
-        holder.name.text = ch.name
-        holder.subtitle.text = listOfNotNull(
-            ch.group?.takeIf { it.isNotBlank() },
-            item.message.takeIf { it.isNotBlank() },
-        ).joinToString(" • ")
+        holder.name.text = ch.name.ifBlank { ch.streamUrl }
+        val subtitle = ch.group?.takeIf { it.isNotBlank() }
+        if (subtitle.isNullOrBlank()) {
+            holder.subtitle.visibility = View.GONE
+        } else {
+            holder.subtitle.visibility = View.VISIBLE
+            holder.subtitle.text = subtitle
+        }
         val tint = ContextCompat.getColor(
             holder.itemView.context,
             if (item.isWorking) R.color.health_working else R.color.health_error,

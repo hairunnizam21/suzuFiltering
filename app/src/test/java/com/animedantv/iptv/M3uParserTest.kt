@@ -73,4 +73,41 @@ class M3uParserTest {
         assertTrue(M3uParser.parse("").isEmpty())
         assertTrue(M3uParser.parse("\n\n\n").isEmpty())
     }
+
+    @Test
+    fun parsesExtinfPlaylistThatStartsWithKodiprop() {
+        val txt = """
+            #KODIPROP:inputstream.adaptive.license_type=clearkey
+            #KODIPROP:inputstream.adaptive.license_key=abc:def
+            #EXTINF:-1 tvg-id="GTV.id" tvg-name="GTV" tvg-logo="https://example.com/gtv.png" group-title="INDONESIA TV",GTV WORLD
+            #EXTVLCOPT:http-referrer=https://www.indihometv.com/
+            https://example.com/gtv.mpd
+        """.trimIndent()
+        val out = M3uParser.parse(txt)
+        assertEquals(1, out.size)
+        val c = out[0]
+        assertEquals("GTV WORLD", c.name)
+        assertEquals("INDONESIA TV", c.group)
+        assertEquals("https://example.com/gtv.mpd", c.streamUrl)
+        assertEquals("https://example.com/gtv.png", c.logoUrl)
+        assertEquals("clearkey", c.licenseType)
+        assertEquals("abc:def", c.drmKey)
+        assertEquals("https://www.indihometv.com/", c.referer)
+    }
+
+    @Test
+    fun rawSourcePreservedForExtinfChannel() {
+        val txt = """
+            #EXTINF:-1 tvg-name="TV1",TV1
+            #KODIPROP:inputstream.adaptive.license_type=clearkey
+            https://example.com/tv1.mpd
+        """.trimIndent()
+        val out = M3uParser.parse(txt)
+        assertEquals(1, out.size)
+        val raw = out[0].rawSource
+        assertNotNull(raw)
+        assertTrue(raw!!.contains("#EXTINF"))
+        assertTrue(raw.contains("#KODIPROP"))
+        assertTrue(raw.contains("https://example.com/tv1.mpd"))
+    }
 }

@@ -37,10 +37,12 @@ object M3uParser {
 
     fun parse(content: String): List<Channel> {
         if (content.isBlank()) return emptyList()
-        val first = content.lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
-        return if (first.startsWith("#EXTM3U", ignoreCase = true) ||
-            first.startsWith("#EXTINF", ignoreCase = true)
-        ) {
+        val hasExtinf = content.lineSequence().any { line ->
+            val t = line.trimStart()
+            t.startsWith("#EXTM3U", ignoreCase = true) ||
+                t.startsWith("#EXTINF", ignoreCase = true)
+        }
+        return if (hasExtinf) {
             parseExtinf(content)
         } else {
             parseCustom(content)
@@ -60,18 +62,26 @@ object M3uParser {
                 line.startsWith("#EXTINF", ignoreCase = true) -> {
                     pending = PendingChannel()
                     parseExtinfHeader(line, pending)
-                    preExtinfProps.forEach { applyProp(it, pending!!) }
+                    preExtinfProps.forEach { prop ->
+                        applyProp(prop, pending!!)
+                        pending!!.sourceLines += prop
+                    }
                     preExtinfProps.clear()
+                    pending.sourceLines += line
                 }
                 line.startsWith("#KODIPROP", ignoreCase = true) ||
                     line.startsWith("#EXTVLCOPT", ignoreCase = true) -> {
-                    pending?.let { applyProp(line, it) } ?: preExtinfProps.add(line)
+                    if (pending != null) {
+                        applyProp(line, pending)
+                        pending.sourceLines += line
+                    } else {
+                        preExtinfProps.add(line)
+                    }
                 }
                 !line.startsWith("#") -> {
                     pending?.let { p ->
-                        if (p.name.isNotBlank() || true) {
-                            channels.add(p.toChannel(line))
-                        }
+                        p.sourceLines += line
+                        channels.add(p.toChannel(line))
                     }
                     pending = null
                     preExtinfProps.clear()
@@ -165,6 +175,7 @@ object M3uParser {
             logoUrl = logo?.trim(),
             group = group,
             drmKey = drm?.trim(),
+            rawSource = block.joinToString("\n"),
         )
     }
 
@@ -200,6 +211,7 @@ object M3uParser {
         var manifestType: String? = null,
         var userAgent: String? = null,
         var referer: String? = null,
+        var sourceLines: MutableList<String> = mutableListOf(),
     ) {
         fun toChannel(streamUrl: String): Channel {
             val drm = if (licenseType?.equals("clearkey", ignoreCase = true) == true) licenseKey else null
@@ -216,6 +228,7 @@ object M3uParser {
                 manifestType = manifestType,
                 userAgent = userAgent,
                 referer = referer,
+                rawSource = sourceLines.joinToString("\n"),
             )
         }
     }
