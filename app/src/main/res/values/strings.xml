@@ -39,12 +39,19 @@
     <string name="edit_name_hint">Channel name</string>
     <string name="edit_group_hint">Group</string>
     <string name="edit_logo_hint">Logo URL</string>
+    <string name="edit_stream_hint">Stream URL (MPD / M3U8)</string>
+    <string name="edit_license_type_hint">License type (e.g. clearkey)</string>
+    <string name="edit_license_key_hint">License key (KID:KEY)</string>
+    <string name="edit_user_agent_hint">User-Agent</string>
+    <string name="edit_referer_hint">Referer / Referrer</string>
+    <string name="edit_tvg_id_hint">tvg-id</string>
     <string name="btn_save">Save</string>
     <string name="btn_cancel">Cancel</string>
     <string name="btn_copy">Copy</string>
     <string name="btn_close">Close</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="untitled_channel">(untitled)</string>
+    <string name="player_error">Playback error: %1$s</string>
 
     <string name="err_import">Import failed: %1$s</string>
     <string name="err_no_channels">No channels found in input.</string>

@@ -173,36 +173,61 @@ class FilterResultActivity : AppCompatActivity() {
     }
 
     private fun showEditDialog(h: ChannelHealth) {
+        val pad = (16 * resources.displayMetrics.density).toInt()
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            val pad = (16 * resources.displayMetrics.density).toInt()
             setPadding(pad, pad / 2, pad, 0)
         }
-        val nameInput = EditText(this).apply {
-            hint = getString(R.string.edit_name_hint)
-            setText(h.channel.name)
+        fun field(hint: Int, value: String?, lines: Int = 1): EditText = EditText(this).apply {
+            this.hint = getString(hint)
+            setText(value.orEmpty())
+            if (lines > 1) {
+                isSingleLine = false
+                maxLines = lines
+                setHorizontallyScrolling(false)
+            }
         }
-        val groupInput = EditText(this).apply {
-            hint = getString(R.string.edit_group_hint)
-            setText(h.channel.group.orEmpty())
-        }
-        val logoInput = EditText(this).apply {
-            hint = getString(R.string.edit_logo_hint)
-            setText(h.channel.logoUrl.orEmpty())
-        }
+        val nameInput = field(R.string.edit_name_hint, h.channel.name)
+        val groupInput = field(R.string.edit_group_hint, h.channel.group)
+        val logoInput = field(R.string.edit_logo_hint, h.channel.logoUrl, lines = 3)
+        val streamInput = field(R.string.edit_stream_hint, h.channel.streamUrl, lines = 3)
+        val licenseTypeInput = field(R.string.edit_license_type_hint, h.channel.licenseType)
+        val licenseKeyInput = field(R.string.edit_license_key_hint, h.channel.licenseKey ?: h.channel.drmKey, lines = 2)
+        val userAgentInput = field(R.string.edit_user_agent_hint, h.channel.userAgent, lines = 2)
+        val refererInput = field(R.string.edit_referer_hint, h.channel.referer)
+        val tvgIdInput = field(R.string.edit_tvg_id_hint, h.channel.tvgId)
         container.addView(nameInput)
         container.addView(groupInput)
+        container.addView(streamInput)
+        container.addView(licenseTypeInput)
+        container.addView(licenseKeyInput)
+        container.addView(userAgentInput)
+        container.addView(refererInput)
         container.addView(logoInput)
+        container.addView(tvgIdInput)
+        val scroll = ScrollView(this).apply { addView(container) }
         AlertDialog.Builder(this)
             .setTitle(R.string.action_edit)
-            .setView(container)
+            .setView(scroll)
             .setPositiveButton(R.string.btn_save) { _, _ ->
                 val idx = allResults.indexOfFirst { it === h }
                 if (idx < 0) return@setPositiveButton
+                fun textOrNull(e: EditText): String? = e.text.toString().trim().takeIf { it.isNotEmpty() }
+                val newLicenseType = textOrNull(licenseTypeInput)
+                val newLicenseKey = textOrNull(licenseKeyInput)
+                val newDrm = if (newLicenseType?.equals("clearkey", ignoreCase = true) == true) newLicenseKey else h.channel.drmKey
                 val updated = h.channel.copy(
-                    name = nameInput.text.toString().trim().ifBlank { h.channel.name },
-                    group = groupInput.text.toString().trim().takeIf { it.isNotEmpty() },
-                    logoUrl = logoInput.text.toString().trim().takeIf { it.isNotEmpty() },
+                    name = textOrNull(nameInput) ?: h.channel.name,
+                    streamUrl = textOrNull(streamInput) ?: h.channel.streamUrl,
+                    group = textOrNull(groupInput),
+                    logoUrl = textOrNull(logoInput),
+                    licenseType = newLicenseType,
+                    licenseKey = newLicenseKey,
+                    drmKey = newDrm,
+                    userAgent = textOrNull(userAgentInput),
+                    referer = textOrNull(refererInput),
+                    tvgId = textOrNull(tvgIdInput),
+                    rawSource = null,
                 )
                 allResults[idx] = h.copy(channel = updated)
                 refresh()
@@ -245,8 +270,8 @@ class FilterResultActivity : AppCompatActivity() {
         sb.append("#EXTINF:-1").append(attrs).append(',').append(c.name).append('\n')
         c.licenseType?.let { sb.append("#KODIPROP:inputstream.adaptive.license_type=").append(it).append('\n') }
         c.licenseKey?.let { sb.append("#KODIPROP:inputstream.adaptive.license_key=").append(it).append('\n') }
-        c.userAgent?.let { sb.append("#EXTVLCOPT:http-user-agent=").append(it).append('\n') }
-        c.referer?.let { sb.append("#EXTVLCOPT:http-referrer=").append(it).append('\n') }
+        c.userAgent?.let { sb.append("#KODIPROP:http-user-agent=").append(it).append('\n') }
+        c.referer?.let { sb.append("#KODIPROP:http-referrer=").append(it).append('\n') }
         sb.append(c.streamUrl)
         return sb.toString()
     }

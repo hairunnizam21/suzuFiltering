@@ -3,12 +3,17 @@ package com.animedantv.iptv
 import android.os.Build
 import android.os.Bundle
 import android.util.Base64
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.animedantv.iptv.databinding.ActivityPlayerBinding
 import org.json.JSONArray
 import org.json.JSONObject
@@ -52,12 +57,39 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         val mediaItem = mediaItemBuilder.build()
-        player = ExoPlayer.Builder(this).build().also { p ->
-            binding.playerView.player = p
-            p.setMediaItem(mediaItem)
-            p.prepare()
-            p.playWhenReady = true
-        }
+
+        val ua = channel.userAgent?.takeIf { it.isNotBlank() } ?: DEFAULT_UA
+        val httpFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent(ua)
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(15_000)
+        val headers = mutableMapOf<String, String>()
+        channel.referer?.takeIf { it.isNotBlank() }?.let { headers["Referer"] = it }
+        if (headers.isNotEmpty()) httpFactory.setDefaultRequestProperties(headers)
+        val dataSourceFactory = DefaultDataSource.Factory(this, httpFactory)
+        val mediaSourceFactory = DefaultMediaSourceFactory(this)
+            .setDataSourceFactory(dataSourceFactory)
+
+        player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
+            .also { p ->
+                binding.playerView.player = p
+                p.addListener(object : Player.Listener {
+                    override fun onPlayerError(error: PlaybackException) {
+                        Log.e(TAG, "Player error: ${error.errorCodeName} ${error.message}", error)
+                        Toast.makeText(
+                            this@PlayerActivity,
+                            getString(R.string.player_error, error.errorCodeName),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                })
+                p.setMediaItem(mediaItem)
+                p.prepare()
+                p.playWhenReady = true
+            }
     }
 
     @Suppress("DEPRECATION")
@@ -106,5 +138,8 @@ class PlayerActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_CHANNEL = "channel"
+        private const val TAG = "PlayerActivity"
+        private const val DEFAULT_UA =
+            "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 suzuFiltering/1.1"
     }
 }
