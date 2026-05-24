@@ -1,28 +1,37 @@
 package com.animedantv.iptv
 
+import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.drm.DefaultDrmSessionManager
+import androidx.media3.exoplayer.drm.DrmSessionManagerProvider
+import androidx.media3.exoplayer.drm.FrameworkMediaDrm
+import androidx.media3.exoplayer.drm.LocalMediaDrmCallback
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.animedantv.iptv.databinding.ActivityPlayerBinding
 import org.json.JSONArray
 import org.json.JSONObject
 
+@OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityPlayerBinding
     private var player: ExoPlayer? = null
 
+    @SuppressLint("UnsafeOptInUsageError")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPlayerBinding.inflate(layoutInflater)
@@ -39,24 +48,10 @@ class PlayerActivity : AppCompatActivity() {
         val streamUrl = UrlUtils.convertShareUrl(channel.streamUrl)
         val mime = UrlUtils.detectMimeType(streamUrl)
 
-        val mediaItemBuilder = MediaItem.Builder()
+        val mediaItem = MediaItem.Builder()
             .setUri(streamUrl)
             .apply { if (mime != null) setMimeType(mime) }
-
-        if (channel.hasClearKey) {
-            val normalizedKid = KidUtils.normalizeKid(channel.clearKeyKid)
-            val key = channel.clearKeyKey
-            if (normalizedKid != null && !key.isNullOrBlank()) {
-                val licenseJson = clearKeyLicense(normalizedKid, key)
-                val drm = MediaItem.DrmConfiguration.Builder(C.CLEARKEY_UUID)
-                    .setKeySetId(null)
-                    .setLicenseUri("data:application/json;base64," + Base64.encodeToString(licenseJson.toByteArray(), Base64.NO_WRAP))
-                    .build()
-                mediaItemBuilder.setDrmConfiguration(drm)
-            }
-        }
-
-        val mediaItem = mediaItemBuilder.build()
+            .build()
 
         val ua = channel.userAgent?.takeIf { it.isNotBlank() } ?: DEFAULT_UA
         val httpFactory = DefaultHttpDataSource.Factory()
@@ -68,8 +63,12 @@ class PlayerActivity : AppCompatActivity() {
         channel.referer?.takeIf { it.isNotBlank() }?.let { headers["Referer"] = it }
         if (headers.isNotEmpty()) httpFactory.setDefaultRequestProperties(headers)
         val dataSourceFactory = DefaultDataSource.Factory(this, httpFactory)
+
+        val drmProvider: DrmSessionManagerProvider? = buildClearKeyProvider(channel)
+
         val mediaSourceFactory = DefaultMediaSourceFactory(this)
             .setDataSourceFactory(dataSourceFactory)
+            .apply { if (drmProvider != null) setDrmSessionManagerProvider(drmProvider) }
 
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
@@ -90,6 +89,19 @@ class PlayerActivity : AppCompatActivity() {
                 p.prepare()
                 p.playWhenReady = true
             }
+    }
+
+    private fun buildClearKeyProvider(channel: Channel): DrmSessionManagerProvider? {
+        if (!channel.hasClearKey) return null
+        val normalizedKid = KidUtils.normalizeKid(channel.clearKeyKid) ?: return null
+        val key = channel.clearKeyKey?.takeIf { it.isNotBlank() } ?: return null
+        val licenseJson = clearKeyLicense(normalizedKid, key)
+        val drmCallback = LocalMediaDrmCallback(licenseJson.toByteArray(Charsets.UTF_8))
+        val sessionManager = DefaultDrmSessionManager.Builder()
+            .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+            .setMultiSession(false)
+            .build(drmCallback)
+        return DrmSessionManagerProvider { sessionManager }
     }
 
     @Suppress("DEPRECATION")
