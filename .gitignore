@@ -1,12 +1,21 @@
-# Apktool intermediate output
+# Gradle
+.gradle/
 build/
-dist/
-*.unsigned.apk
-*.aligned.apk
+**/build/
 
 # IDE
 .idea/
+*.iml
 .vscode/
+local.properties
+
+# Keystores (debug builds use auto-generated debug keystore)
+release.keystore
+*.jks
 
 # OS
 .DS_Store
+Thumbs.db
+
+# APK output (we commit one curated APK in apk/ instead of build outputs)
+**/outputs/apk/
