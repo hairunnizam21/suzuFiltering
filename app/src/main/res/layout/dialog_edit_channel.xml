@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            style="@style/EditSectionHeader"
+            android:text="@string/section_channel" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/EditField"
+            android:hint="@string/edit_name_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textCapWords"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/EditField"
+            android:hint="@string/edit_group_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            style="@style/EditSectionHeader"
+            android:text="@string/section_stream" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/EditField"
+            android:hint="@string/edit_stream_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_stream_url"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textUri"
+                android:maxLines="3" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            style="@style/EditSectionHeader"
+            android:text="@string/section_drm" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/EditField"
+            android:hint="@string/edit_license_type_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_license_type"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/EditField"
+            app:helperText="@string/edit_license_key_helper"
+            android:hint="@string/edit_license_key_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_license_key"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:fontFamily="monospace"
+                android:maxLines="2" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            style="@style/EditSectionHeader"
+            android:text="@string/section_http_headers" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/EditField"
+            android:hint="@string/edit_user_agent_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_user_agent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:maxLines="2" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/EditField"
+            android:hint="@string/edit_referer_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_referer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textUri"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            style="@style/EditSectionHeader"
+            android:text="@string/section_branding" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/EditField"
+            android:hint="@string/edit_logo_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_logo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textUri"
+                android:maxLines="2" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/EditField"
+            android:hint="@string/edit_tvg_id_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_tvg_id"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+    </LinearLayout>
+</ScrollView>

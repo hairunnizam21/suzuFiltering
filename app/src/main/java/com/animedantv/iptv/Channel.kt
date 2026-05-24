@@ -17,6 +17,7 @@ data class Channel(
     val manifestType: String? = null,
     val userAgent: String? = null,
     val referer: String? = null,
+    val rawSource: String? = null,
 ) : Parcelable {
     val hasClearKey: Boolean
         get() = !drmKey.isNullOrBlank() && drmKey.contains(':')
