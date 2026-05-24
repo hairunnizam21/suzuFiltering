@@ -11,17 +11,16 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.LayoutInflater
 import android.view.View
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.animedantv.iptv.databinding.ActivityFilterResultBinding
+import com.animedantv.iptv.databinding.DialogEditChannelBinding
+import com.animedantv.iptv.databinding.DialogViewSourceBinding
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.tabs.TabLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -150,7 +149,7 @@ class FilterResultActivity : AppCompatActivity() {
             getString(R.string.action_view_source),
             getString(moveLabel),
         )
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(h.channel.name.ifBlank { getString(R.string.untitled_channel) })
             .setItems(items) { _, which ->
                 when (which) {
@@ -173,60 +172,43 @@ class FilterResultActivity : AppCompatActivity() {
     }
 
     private fun showEditDialog(h: ChannelHealth) {
-        val pad = (16 * resources.displayMetrics.density).toInt()
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad / 2, pad, 0)
-        }
-        fun field(hint: Int, value: String?, lines: Int = 1): EditText = EditText(this).apply {
-            this.hint = getString(hint)
-            setText(value.orEmpty())
-            if (lines > 1) {
-                isSingleLine = false
-                maxLines = lines
-                setHorizontallyScrolling(false)
-            }
-        }
-        val nameInput = field(R.string.edit_name_hint, h.channel.name)
-        val groupInput = field(R.string.edit_group_hint, h.channel.group)
-        val logoInput = field(R.string.edit_logo_hint, h.channel.logoUrl, lines = 3)
-        val streamInput = field(R.string.edit_stream_hint, h.channel.streamUrl, lines = 3)
-        val licenseTypeInput = field(R.string.edit_license_type_hint, h.channel.licenseType)
-        val licenseKeyInput = field(R.string.edit_license_key_hint, h.channel.licenseKey ?: h.channel.drmKey, lines = 2)
-        val userAgentInput = field(R.string.edit_user_agent_hint, h.channel.userAgent, lines = 2)
-        val refererInput = field(R.string.edit_referer_hint, h.channel.referer)
-        val tvgIdInput = field(R.string.edit_tvg_id_hint, h.channel.tvgId)
-        container.addView(nameInput)
-        container.addView(groupInput)
-        container.addView(streamInput)
-        container.addView(licenseTypeInput)
-        container.addView(licenseKeyInput)
-        container.addView(userAgentInput)
-        container.addView(refererInput)
-        container.addView(logoInput)
-        container.addView(tvgIdInput)
-        val scroll = ScrollView(this).apply { addView(container) }
-        AlertDialog.Builder(this)
+        val ch = h.channel
+        val dlgBinding = DialogEditChannelBinding.inflate(LayoutInflater.from(this))
+        dlgBinding.inputName.setText(ch.name)
+        dlgBinding.inputGroup.setText(ch.group.orEmpty())
+        dlgBinding.inputStreamUrl.setText(ch.streamUrl)
+        dlgBinding.inputLicenseType.setText(ch.licenseType.orEmpty())
+        dlgBinding.inputLicenseKey.setText(ch.licenseKey ?: ch.drmKey.orEmpty())
+        dlgBinding.inputUserAgent.setText(ch.userAgent.orEmpty())
+        dlgBinding.inputReferer.setText(ch.referer.orEmpty())
+        dlgBinding.inputLogo.setText(ch.logoUrl.orEmpty())
+        dlgBinding.inputTvgId.setText(ch.tvgId.orEmpty())
+
+        MaterialAlertDialogBuilder(this)
             .setTitle(R.string.action_edit)
-            .setView(scroll)
+            .setView(dlgBinding.root)
             .setPositiveButton(R.string.btn_save) { _, _ ->
                 val idx = allResults.indexOfFirst { it === h }
                 if (idx < 0) return@setPositiveButton
-                fun textOrNull(e: EditText): String? = e.text.toString().trim().takeIf { it.isNotEmpty() }
-                val newLicenseType = textOrNull(licenseTypeInput)
-                val newLicenseKey = textOrNull(licenseKeyInput)
-                val newDrm = if (newLicenseType?.equals("clearkey", ignoreCase = true) == true) newLicenseKey else h.channel.drmKey
-                val updated = h.channel.copy(
-                    name = textOrNull(nameInput) ?: h.channel.name,
-                    streamUrl = textOrNull(streamInput) ?: h.channel.streamUrl,
-                    group = textOrNull(groupInput),
-                    logoUrl = textOrNull(logoInput),
+                fun textOrNull(s: CharSequence?): String? = s?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                val newLicenseType = textOrNull(dlgBinding.inputLicenseType.text)
+                val newLicenseKey = textOrNull(dlgBinding.inputLicenseKey.text)
+                val newDrm = if (newLicenseType?.equals("clearkey", ignoreCase = true) == true) {
+                    newLicenseKey
+                } else {
+                    ch.drmKey
+                }
+                val updated = ch.copy(
+                    name = textOrNull(dlgBinding.inputName.text) ?: ch.name,
+                    streamUrl = textOrNull(dlgBinding.inputStreamUrl.text) ?: ch.streamUrl,
+                    group = textOrNull(dlgBinding.inputGroup.text),
+                    logoUrl = textOrNull(dlgBinding.inputLogo.text),
                     licenseType = newLicenseType,
                     licenseKey = newLicenseKey,
                     drmKey = newDrm,
-                    userAgent = textOrNull(userAgentInput),
-                    referer = textOrNull(refererInput),
-                    tvgId = textOrNull(tvgIdInput),
+                    userAgent = textOrNull(dlgBinding.inputUserAgent.text),
+                    referer = textOrNull(dlgBinding.inputReferer.text),
+                    tvgId = textOrNull(dlgBinding.inputTvgId.text),
                     rawSource = null,
                 )
                 allResults[idx] = h.copy(channel = updated)
@@ -239,17 +221,11 @@ class FilterResultActivity : AppCompatActivity() {
     private fun showSourceDialog(h: ChannelHealth) {
         val source = h.channel.rawSource?.takeIf { it.isNotBlank() }
             ?: buildSyntheticSource(h.channel)
-        val text = TextView(this).apply {
-            this.text = source
-            setTextIsSelectable(true)
-            typeface = android.graphics.Typeface.MONOSPACE
-            val pad = (16 * resources.displayMetrics.density).toInt()
-            setPadding(pad, pad / 2, pad, pad / 2)
-        }
-        val scroll = ScrollView(this).apply { addView(text) }
-        AlertDialog.Builder(this)
+        val dlgBinding = DialogViewSourceBinding.inflate(LayoutInflater.from(this))
+        dlgBinding.txtSource.text = source
+        MaterialAlertDialogBuilder(this)
             .setTitle(R.string.action_view_source)
-            .setView(scroll)
+            .setView(dlgBinding.root)
             .setPositiveButton(R.string.btn_copy) { _, _ ->
                 val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 cm.setPrimaryClip(ClipData.newPlainText("channel source", source))

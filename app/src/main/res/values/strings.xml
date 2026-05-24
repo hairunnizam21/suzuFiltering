@@ -36,15 +36,27 @@
     <string name="action_move_to_error">Move to Error</string>
     <string name="action_move_to_working">Move to Working</string>
 
+    <string name="section_channel">Channel</string>
+    <string name="section_stream">Stream</string>
+    <string name="section_drm">DRM</string>
+    <string name="section_http_headers">HTTP headers</string>
+    <string name="section_branding">Branding</string>
+
     <string name="edit_name_hint">Channel name</string>
     <string name="edit_group_hint">Group</string>
     <string name="edit_logo_hint">Logo URL</string>
     <string name="edit_stream_hint">Stream URL (MPD / M3U8)</string>
-    <string name="edit_license_type_hint">License type (e.g. clearkey)</string>
-    <string name="edit_license_key_hint">License key (KID:KEY)</string>
+    <string name="edit_license_type_hint">License type</string>
+    <string name="edit_license_key_hint">License key</string>
+    <string name="edit_license_key_helper">Format: KID:KEY (hex)</string>
     <string name="edit_user_agent_hint">User-Agent</string>
     <string name="edit_referer_hint">Referer / Referrer</string>
     <string name="edit_tvg_id_hint">tvg-id</string>
+
+    <string name="action_theme">Theme</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
     <string name="btn_save">Save</string>
     <string name="btn_cancel">Cancel</string>
     <string name="btn_copy">Copy</string>
