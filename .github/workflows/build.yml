@@ -1,0 +1,67 @@
+name: Build suzuFiltering APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache apktool jar
+        id: cache-apktool
+        uses: actions/cache@v4
+        with:
+          path: tools/apktool.jar
+          key: apktool-2.10.0
+
+      - name: Download apktool
+        if: steps.cache-apktool.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p tools
+          curl -L -o tools/apktool.jar \
+            https://github.com/iBotPeaches/Apktool/releases/download/v2.10.0/apktool_2.10.0.jar
+
+      - name: Install Android build-tools (for zipalign + apksigner)
+        run: |
+          ANDROID_SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          curl -sSL -o /tmp/cmdline.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/cmdline.zip -d "$ANDROID_SDK_ROOT/cmdline-tools/"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0" >/dev/null
+          echo "$ANDROID_SDK_ROOT/build-tools/34.0.0" >> "$GITHUB_PATH"
+
+      - name: Verify pre-built APK is signed and valid
+        run: |
+          if [ -f apk/suzuFiltering-latest.apk ]; then
+            apksigner verify --verbose apk/suzuFiltering-latest.apk
+          else
+            echo "No pre-built APK in apk/; nothing to verify." >&2
+          fi
+
+      - name: Upload signed APK artifact
+        if: hashFiles('apk/suzuFiltering-latest.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: suzuFiltering-apk
+          path: apk/suzuFiltering-latest.apk
+
+      - name: Attach APK to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apk/suzuFiltering-latest.apk

@@ -1,0 +1,12 @@
+# Apktool intermediate output
+build/
+dist/
+*.unsigned.apk
+*.aligned.apk
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
